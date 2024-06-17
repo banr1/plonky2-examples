@@ -25,7 +25,7 @@ fn main() -> Result<()> {
     // We use the degree D extension Field when soundness is required.
     const D: usize = 2;
 
-    let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+    let mut builder = CircuitBuilder::<F, D>::new(config);
 
     let x_t = builder.add_virtual_target();
     let minus_x_t = builder.neg(x_t);
@@ -36,12 +36,13 @@ fn main() -> Result<()> {
     let poly_t = builder.add_many(&[x2_t, minus_2x_t, one_t]);
     builder.connect(poly_t, zero_t); // x^2 - 2x + 1 = 0
 
-    let data = builder.build::<C>();
+    let circuit = builder.build::<C>();
+    
     let mut pw = PartialWitness::<F>::new();
     pw.set_target(x_t, GoldilocksField(1)); // set x = 1
 
-    let proof = data.prove(pw)?;
-    data.verify(proof)?;
+    let proof = circuit.prove(pw)?;
+    circuit.verify(proof)?;
 
     Ok(())
 }
