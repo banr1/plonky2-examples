@@ -5,26 +5,17 @@ use plonky2::{
         circuit_builder::CircuitBuilder, circuit_data::CircuitConfig,
         config::PoseidonGoldilocksConfig,
     },
+    iop::target::Target,
 };
 
 use anyhow::Result;
 
-// If main function returns Err, Rust prints error code and a debug information.
-fn main() -> Result<()> {
-    // Proof that "I know x that satisfies x^2 - 2x + 1 = 0"
+type F = GoldilocksField;
+type C = PoseidonGoldilocksConfig;
+const D: usize = 2;
 
-    // config defines number of wires of gates, FRI strategies etc.
+fn build_circuit() -> (CircuitBuilder<F, D>, Target) {
     let config = CircuitConfig::standard_recursion_config();
-
-    // We use GoldilocksField as circuit arithmetization
-    type F = GoldilocksField;
-
-    // We use Poseidon hash on GoldilocksField as FRI hasher
-    type C = PoseidonGoldilocksConfig;
-
-    // We use the degree D extension Field when soundness is required.
-    const D: usize = 2;
-
     let mut builder = CircuitBuilder::<F, D>::new(config);
 
     let x_t = builder.add_virtual_target();
@@ -36,13 +27,24 @@ fn main() -> Result<()> {
     let poly_t = builder.add_many(&[x2_t, minus_2x_t, one_t]);
     builder.connect(poly_t, zero_t); // x^2 - 2x + 1 = 0
 
-    let circuit = builder.build::<C>();
-    
+    (builder, x_t)
+}
+
+fn create_witness(x_t: Target) -> PartialWitness<F> {
     let mut pw = PartialWitness::<F>::new();
     pw.set_target(x_t, GoldilocksField(1)); // set x = 1
+    pw
+}
 
+fn prove_and_verify(circuit: plonky2::plonk::circuit_data::CircuitData<F, C, D>, pw: PartialWitness<F>) -> Result<()> {
     let proof = circuit.prove(pw)?;
     circuit.verify(proof)?;
-
     Ok(())
+}
+
+fn main() -> Result<()> {
+    let (builder, x_t) = build_circuit();
+    let circuit = builder.build::<C>();
+    let pw = create_witness(x_t);
+    prove_and_verify(circuit, pw)
 }
